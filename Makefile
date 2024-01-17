@@ -7,12 +7,12 @@ OBJS_OTP = rk-genotp.o
 CC = gcc
 LD = gcc
 
-CFLAGS = -O2
+CFLAGS = -O2 -MMD
 LDFLAGS = /opt/mbedtls/lib/libmbedcrypto.a
 
 INC = -I /opt/mbedtls/include
 
-DEPS = $(OBJS:.o=.d)
+DEPS = $(OBJS_PACK:.o=.d) $(OBJS_OTP:.o=.d)
 
 all: $(TARGET_PACK) $(TARGET_OTP)
 
