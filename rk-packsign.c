@@ -70,8 +70,8 @@ static int MyRandom(void *pPrivate, uint8_t *pOutput, size_t Length)
 static void Usage(const char *pExecutable)
 {
 	printf("Usage:\n");
-	printf("\t%s --flash -i input [-s loader] -o output\n", pExecutable);
-	printf("\t%s --usb -i input -o output\n", pExecutable);
+	printf("\t%s --flash [--key key.pem] -i input [-s loader] -o output\n", pExecutable);
+	printf("\t%s --usb [--key key.pem] -i input -o output\n", pExecutable);
 	printf("\n");
 }
 
