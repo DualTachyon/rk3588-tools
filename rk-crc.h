@@ -23,5 +23,8 @@
 void Crc32Init(void);
 uint32_t Crc32(uint32_t c, const void *pBuffer, size_t Length);
 
+void Crc16Init(void);
+uint16_t Crc16(uint16_t c, const void *pBuffer, size_t Length);
+
 #endif
 

@@ -18,10 +18,11 @@
 #include "rk-crc.h"
 
 static uint32_t Crc32Table[256];
+static uint16_t Crc16Table[256];
 
 void Crc32Init(void)
 {
-	uint32_t Poly = 0x04C10DB7; // 1 bit difference polynomial than standard!
+	uint32_t Poly = 0x04C10DB7U; // 1 bit difference polynomial than standard!
 	uint32_t i, j, c;
 
 	for (i = 0; i < 256; i++) {
@@ -29,7 +30,7 @@ void Crc32Init(void)
 		for (j = 0; j < 8; j++) {
 			bool bIsSet;
 
-			bIsSet = (c & 0x80000000);
+			bIsSet = (c & 0x80000000U);
 			c <<= 1;
 			if (bIsSet) {
 				c ^= Poly;
@@ -46,6 +47,38 @@ uint32_t Crc32(uint32_t c, const void *pBuffer, size_t Length)
 
 	for (i = 0; i < Length; i++) {
 		c = (c << 8) ^ Crc32Table[(c >> 24) ^ pBytes[i]];
+	}
+
+	return c;
+}
+
+void Crc16Init(void)
+{
+	uint16_t Poly = 0x1021U;
+	uint16_t i, j, c;
+
+	for (i = 0; i < 256; i++) {
+		c = i << 8;
+		for (j = 0; j < 8; j++) {
+			bool bIsSet;
+
+			bIsSet = (c & 0x8000);
+			c <<= 1;
+			if (bIsSet) {
+				c ^= Poly;
+			}
+		}
+		Crc16Table[i] = c;
+	}
+}
+
+uint16_t Crc16(uint16_t c, const void *pBuffer, size_t Length)
+{
+	const uint8_t *pBytes = (const uint8_t *)pBuffer;
+	size_t i;
+
+	for (i = 0; i < Length; i++) {
+		c = (c << 8) ^ Crc16Table[(c >> 8) ^ pBytes[i]];
 	}
 
 	return c;
