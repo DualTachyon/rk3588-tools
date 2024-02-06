@@ -52,8 +52,9 @@ typedef struct {
 typedef struct {
 	struct {
 		uint32_t Magic;
-		uint32_t _0x0004;
-		uint32_t _0x0008;
+		uint32_t Reserved0;
+		uint16_t TotalWords; // Number of words before signature
+		uint16_t NumberOfImages;
 		uint32_t Flags;
 		uint32_t _0x0010;
 		uint16_t RollbackVersion;
@@ -69,16 +70,15 @@ typedef struct {
 		// 0x0034
 		uint8_t _0x0034[36];
 		// 0x0058
-		uint8_t ImageArguments[32];
+		uint32_t ImageArguments[8];
 		// 0x0078
 		struct {
 			uint16_t Lba;
 			uint16_t Count;
-			uint32_t _0x0004; // Shows as 0xFFFFFFFF but not checked
-			uint32_t _0x0008;
+			uint32_t Address;
+			uint32_t Flags;
 			uint8_t Nonce[4];
-			uint32_t _0x0010;
-			uint32_t _0x0014;
+			uint8_t Reserved[8];
 			uint8_t Hash[64];
 		} Table[4];
 		// 0x01C8
