@@ -43,17 +43,17 @@ typedef struct {
 } Argument_t;
 
 static const char *pKeyFile;
-static const char *pInputFile;
+static const char *p471File;
+static const char *p472File;
 static const char *pOutputFile;
-static const char *pLoaderFile;
 static uint32_t ImageType;
 
 static const Argument_t RK_Arguments[] = {
-	{ "-i",		ARGUMENT_TYPE_STRING,	0,			&pInputFile },
-	{ "-s",		ARGUMENT_TYPE_STRING,	0,			&pLoaderFile },
+	{ "--471",	ARGUMENT_TYPE_STRING,	0,			&p471File },
+	{ "--472",	ARGUMENT_TYPE_STRING,	0,			&p472File },
 	{ "-o",		ARGUMENT_TYPE_STRING,	0,			&pOutputFile },
-	{ "--usb",	ARGUMENT_TYPE_XU32,	RK3588_IMAGE_USB,	&ImageType },
-	{ "--flash",	ARGUMENT_TYPE_XU32,	RK3588_IMAGE_FLASH,	&ImageType },
+	{ "--rkldr",	ARGUMENT_TYPE_XU32,	RK3588_IMAGE_LDR,	&ImageType },
+	{ "--rkss",	ARGUMENT_TYPE_XU32,	RK3588_IMAGE_RKSS,	&ImageType },
 	{ "--key",	ARGUMENT_TYPE_STRING,	0,			&pKeyFile },
 	{ NULL },
 };
@@ -70,8 +70,8 @@ static int MyRandom(void *pPrivate, uint8_t *pOutput, size_t Length)
 static void Usage(const char *pExecutable)
 {
 	printf("Usage:\n");
-	printf("\t%s --flash [--key key.pem] -i input [-s loader] -o output\n", pExecutable);
-	printf("\t%s --usb [--key key.pem] -i input -o output\n", pExecutable);
+	printf("\t%s --rkss [--key key.pem] --471 input.bin [--472 472.bin] -o output.bin\n", pExecutable);
+	printf("\t%s --rkldr [--key key.pem] --471 input.bin -o output.bin\n", pExecutable);
 	printf("\n");
 }
 
@@ -142,7 +142,7 @@ static int ParseArguments(int argc, char *argv[], const Argument_t *pArguments)
 	return 0;
 }
 
-static void *LoadFile(const char *pFilename, size_t *pAlignedSize)
+static void *LoadFile(const char *pFilename, size_t *pAlignedSize, size_t MaxSize)
 {
 	FILE *fp;
 	size_t Size, AlignedSize;
@@ -158,7 +158,7 @@ static void *LoadFile(const char *pFilename, size_t *pAlignedSize)
 	Size = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 
-	if (!Size || Size > 33553920) {
+	if (!Size || Size > MaxSize) {
 		printf("File %s is empty!", pFilename);
 		fclose(fp);
 		return NULL;
@@ -194,8 +194,8 @@ static int CheckArguments(int argc, char *argv[])
 		return -1;
 	}
 
-	if (!pInputFile) {
-		printf("Missing input file!\n\n");
+	if (!p471File) {
+		printf("Missing 471 file!\n\n");
 		Usage(argv[0]);
 		return -1;
 	}
@@ -210,8 +210,8 @@ static int CheckArguments(int argc, char *argv[])
 		return -1;
 	}
 
-	if (pLoaderFile && ImageType == RK3588_IMAGE_USB) {
-		printf("Loader file not supported in USB image!\n");
+	if (p472File && ImageType == RK3588_IMAGE_LDR) {
+		printf("472 file currently not supported in LDR image!\n");
 		return -1;
 	}
 
@@ -224,10 +224,10 @@ int main(int argc, char *argv[])
 	RK_SignedHeader_t Header;
 	mbedtls_sha256_context Sha;
 	mbedtls_pk_context Pk;
-	void *pImage;
-	void *pLoader = NULL;
-	size_t AlignedSize;
-	size_t LoaderAlignedSize;
+	void *p471Image;
+	void *p472Image = NULL;
+	size_t AlignedSize471;
+	size_t AlignedSize472;
 	uint32_t CRC;
 	FILE *fp;
 	int ret;
@@ -238,8 +238,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	pImage = LoadFile(pInputFile, &AlignedSize);
-	if (!pImage) {
+	p471Image = LoadFile(p471File, &AlignedSize471, 1048576U - 4096U);
+	if (!p471Image) {
 		return 1;
 	}
 
@@ -249,27 +249,27 @@ int main(int argc, char *argv[])
 	if (pKeyFile) {
 		Header.Signed.Flags |= RK3588_FLAGS_SIGNED;
 	}
-	Header.Signed.Table[0].Lba = 4;
-	Header.Signed.Table[0].Count = (uint16_t)(AlignedSize / RK3588_LBA_SIZE);
+	Header.Signed.Table[0].Lba = sizeof(Header) / RK3588_LBA_SIZE;
+	Header.Signed.Table[0].Count = (uint16_t)(AlignedSize471 / RK3588_LBA_SIZE);
 
 	mbedtls_sha256_init(&Sha);
 	mbedtls_sha256_starts(&Sha, 0);
-	mbedtls_sha256_update(&Sha, (uint8_t *)pImage, AlignedSize);
+	mbedtls_sha256_update(&Sha, (uint8_t *)p471Image, AlignedSize471);
 	mbedtls_sha256_finish(&Sha, Header.Signed.Table[0].Hash);
 
-	if (pLoaderFile) {
-		pLoader = LoadFile(pLoaderFile, &LoaderAlignedSize);
-		if (!pLoader) {
-			free(pImage);
+	if (p472File) {
+		p472Image = LoadFile(p472File, &AlignedSize472, 32768U * 1024U);
+		if (!p472Image) {
+			free(p471Image);
 			return 1;
 		}
 
 		Header.Signed.Table[1].Lba = Header.Signed.Table[0].Lba + Header.Signed.Table[0].Count;
-		Header.Signed.Table[1].Count = (uint16_t)(LoaderAlignedSize / RK3588_LBA_SIZE);
+		Header.Signed.Table[1].Count = (uint16_t)(AlignedSize472 / RK3588_LBA_SIZE);
 
 		mbedtls_sha256_init(&Sha);
 		mbedtls_sha256_starts(&Sha, 0);
-		mbedtls_sha256_update(&Sha, (uint8_t *)pLoader, LoaderAlignedSize);
+		mbedtls_sha256_update(&Sha, (uint8_t *)p472Image, AlignedSize472);
 		mbedtls_sha256_finish(&Sha, Header.Signed.Table[1].Hash);
 	}
 
@@ -337,10 +337,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	Crc32Init();
+	if (ImageType == RK3588_IMAGE_LDR) {
+		Crc32Init();
 
-	CRC = 0;
-	if (ImageType == RK3588_IMAGE_USB) {
+		CRC = 0;
 		memset(&BootHeader, 0, sizeof(BootHeader));
 		BootHeader.Magic = RK3588_MAGIC_BOOT;
 		BootHeader.ChipType = 0x33353838;
@@ -354,13 +354,13 @@ int main(int argc, char *argv[])
 		BootHeader.Entries[1].EntrySize = sizeof(BootHeader.Entries[1]);
 		BootHeader.Entries[1].Type = 1;
 		BootHeader.Entries[1].Offset = sizeof(BootHeader) + sizeof(Header);
-		BootHeader.Entries[1].Size = (uint32_t)AlignedSize;
+		BootHeader.Entries[1].Size = (uint32_t)AlignedSize471;
 		CRC = Crc32(CRC, &BootHeader, sizeof(BootHeader));
-	}
-	CRC = Crc32(CRC, &Header, sizeof(Header));
-	CRC = Crc32(CRC, pImage, AlignedSize);
-	if (pLoader) {
-		CRC = Crc32(CRC, pLoader, LoaderAlignedSize);
+		CRC = Crc32(CRC, &Header, sizeof(Header));
+		CRC = Crc32(CRC, p471Image, AlignedSize471);
+		if (p472Image) {
+			CRC = Crc32(CRC, p472Image, AlignedSize472);
+		}
 	}
 
 	fp = fopen(pOutputFile, "wb");
@@ -369,30 +369,32 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (ImageType == RK3588_IMAGE_USB) {
+	if (ImageType == RK3588_IMAGE_LDR) {
 		fwrite(&BootHeader, 1, sizeof(BootHeader), fp);
 	}
 	fwrite(&Header, 1, sizeof(Header), fp);
-	fwrite(pImage, 1, AlignedSize, fp);
-	if (pLoader) {
-		fwrite(pLoader, 1, LoaderAlignedSize, fp);
+	fwrite(p471Image, 1, AlignedSize471, fp);
+	if (p472Image) {
+		fwrite(p472Image, 1, AlignedSize472, fp);
 	}
-	fwrite(&CRC, 1, sizeof(CRC), fp);
+	if (ImageType == RK3588_IMAGE_LDR) {
+		fwrite(&CRC, 1, sizeof(CRC), fp);
+	}
 	fclose(fp);
 
-	if (pLoader) {
-		free(pLoader);
+	if (p472Image) {
+		free(p472Image);
 	}
 
-	free(pImage);
+	free(p471Image);
 
 	return 0;
 
 Error:
-	if (pLoader) {
-		free(pLoader);
+	if (p472Image) {
+		free(p472Image);
 	}
-	free(pImage);
+	free(p471Image);
 
 	return 1;
 }

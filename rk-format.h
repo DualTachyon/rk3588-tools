@@ -51,14 +51,23 @@ typedef struct {
 
 typedef struct {
 	struct {
+		// 0x0000
 		uint32_t Magic;
+		// 0x0004
 		uint32_t Reserved0;
+		// 0x0008
 		uint16_t TotalWords; // Number of words before signature
+		// 0x000A
 		uint16_t NumberOfImages;
+		// 0x000C
 		uint32_t Flags;
+		// 0x0010
 		uint32_t _0x0010;
+		// 0x0014
 		uint16_t RollbackVersion;
+		// 0x0016
 		uint16_t RollbackVersionOTP;
+		// 0x0018
 		union {
 			uint64_t Counter;
 			uint8_t Nonce[8];

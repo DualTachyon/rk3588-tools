@@ -2,3 +2,6 @@
 *.o
 rk-genotp
 rk-packsign
+rk-resign
+rk-usb
+
