@@ -104,12 +104,8 @@ int main(int argc, char *argv[])
 		goto Error;
 	}
 
-	if (fread(pBuffer, 1, Length - 4, fp) != Length - 4) {
+	if (fread(pBuffer, 1, Length, fp) != Length) {
 		printf("Failed to read image!\n");
-		goto Error;
-	}
-	if (fread(&Crc, 1, sizeof(Crc), fp) != sizeof(Crc)) {
-		printf("Failed to read checksum!\n");
 		goto Error;
 	}
 
