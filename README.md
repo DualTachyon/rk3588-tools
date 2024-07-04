@@ -11,9 +11,7 @@ Also included is a Secure Boot OTP data generator, which RockChip doesn't make e
 
 # Requirements
 
-- You need a recent version of mbedTLS (3.5.1 currently) to build these tools.
-
-The makefile expects to find it at /opt/mbedtls. If necessary, modify the Makefile to suit your needs.
+- This repository builds correctly in Ubuntu 22.04. Other distributions may require slight tweaks to the Makefile.
 
 # Building
 
