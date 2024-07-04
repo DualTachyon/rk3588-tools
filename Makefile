@@ -14,10 +14,8 @@ CC = gcc
 LD = gcc
 
 CFLAGS = -O2 -MMD
-LDCRYPTO = /opt/mbedtls/lib/libmbedcrypto.a
+LDCRYPTO = -lmbedcrypto
 LDUSB = -lusb-1.0
-
-INC = -I /opt/mbedtls/include
 
 DEPS = $(OBJS_PACK:.o=.d) $(OBJS_OTP:.o=.d) $(OBJS_USB:.o=.d)
 
@@ -36,7 +34,7 @@ $(TARGET_USB): $(OBJS_USB)
 	$(LD) $^ -o $@ $(LDFLAGS) $(LDUSB)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(INC) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 -include $(DEPS)
 
