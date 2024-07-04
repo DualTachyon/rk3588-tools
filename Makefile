@@ -13,7 +13,7 @@ OBJS_USB = rk-crc.o rk-usb.o
 CC = gcc
 LD = gcc
 
-CFLAGS = -O2 -MMD
+CFLAGS = -O2 -Wall -MMD
 LDCRYPTO = -lmbedcrypto
 LDUSB = -lusb-1.0
 
