@@ -11,7 +11,7 @@ Also included is a Secure Boot OTP data generator, which RockChip doesn't make e
 
 # Requirements
 
-- This repository builds correctly in Ubuntu 22.04. Other distributions may require slight tweaks to the Makefile.
+- This repository builds correctly in Ubuntu 24.04. Other distributions may require slight tweaks to the Makefile.
 
 # Building
 
@@ -25,7 +25,7 @@ $ make
 
 ```
 # This loader.bin is always based at 0xFF001000.
-$ ./rk-packsign --flash -i loader.bin -o loader.flash.bin
+$ ./rk-packsign --rkss --471 loader.bin -o loader.flash.bin
 
 # If you don't have a miniloader image, make one from https://github.com/rockchip-linux/rkbin
 $ ./tools/boot_merger RKBOOT/RK3588MINIALL_RAMBOOT.ini
@@ -38,7 +38,7 @@ $ rkdeveloptool wl 64 loader.flash.bin
 
 # If you also want DDR training to happen, base your loader.bin to 0x00000000.
 # The -s parameter is currently not yet implemented for USB images.
-$ ./rk-packsign --flash -s loader.bin -o loader.flash.bin -i path_to/rkbin/bin/rk35/rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v1.12.bin
+$ ./rk-packsign --rkss --472 loader.bin -o loader.flash.bin --471 path_to/rkbin/bin/rk35/rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v1.12.bin
 $ rkdeveloptool db loader.flash.bin
 ```
 
@@ -46,14 +46,14 @@ $ rkdeveloptool db loader.flash.bin
 
 ```
 # This loader.bin is always based at 0xFF001000.
-$ ./rk-packsign --usb -i loader.bin -o loader.usb.bin
+$ ./rk-packsign --usb --471 loader.bin -o loader.usb.bin
 $ rkdeveloptool db loader.usb.bin
 ```
 
 - To add signing to any of the above steps, add --key to the command line. For example:
 
 ```
-$ ./rk-packsign --key private_key.pem --usb -i loader.bin -o loader.usb.bin
+$ ./rk-packsign --key private_key.pem --usb --471 loader.bin -o loader.usb.bin
 ```
 
 # Generating the OTP data for Secure Boot enablement

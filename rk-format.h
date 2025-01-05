@@ -50,6 +50,27 @@ typedef struct {
 } RK_BootHeader_t;
 
 typedef struct {
+	uint16_t Lba;
+	uint16_t Count;
+	uint32_t Address;
+	uint32_t Flags;
+	union {
+		uint32_t Counter;
+		uint8_t Nonce[4];
+	};
+	uint8_t Reserved[8];
+	uint8_t Hash[64];
+} RK_BootLoaderEntry_t;
+
+typedef struct {
+	// 0x0200
+	uint8_t Modulus[512];
+	// 0x0400
+	uint8_t Exponent[16];
+	uint8_t NP[32];
+} RK_BootKeyInfo_t;
+
+typedef struct {
 	struct {
 		// 0x0000
 		uint32_t Magic;
@@ -81,29 +102,35 @@ typedef struct {
 		// 0x0058
 		uint32_t ImageArguments[8];
 		// 0x0078
-		struct {
-			uint16_t Lba;
-			uint16_t Count;
-			uint32_t Address;
-			uint32_t Flags;
-			uint8_t Nonce[4];
-			uint8_t Reserved[8];
-			uint8_t Hash[64];
-		} Table[4];
+		RK_BootLoaderEntry_t Table[4];
 		// 0x01C8
 		uint8_t _0x01C8[40];
-		struct {
-			// 0x0200
-			uint8_t Modulus[512];
-			// 0x0400
-			uint8_t Exponent[16];
-			uint8_t NP[32];
-		} Key;
+		RK_BootKeyInfo_t Key;
 		uint8_t _0x0450[464];
 	} Signed;
 	// 0x0600
 	uint8_t Signature[512];
 } RK_SignedHeader_t;
+
+typedef struct {
+	struct {
+		// 0x0000
+		uint32_t Magic;
+		uint32_t _0x0004;
+		uint32_t _0x0008;
+		uint32_t _0x000C;
+		// 0x0010
+		uint32_t _0x0010;
+		uint16_t RollbackOTP;
+		uint16_t _0x0016;
+		uint8_t _0x0018[40];
+		// 0x0040
+		RK_BootKeyInfo_t Key;
+		// 0x0270
+		uint8_t _0x0270[912];
+	} Signed;
+	uint8_t Signature[512];
+} RK_SignedKey_t;
 
 #pragma pack(pop)
 

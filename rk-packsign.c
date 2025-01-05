@@ -32,8 +32,9 @@
 #define PERSONALISATION			"RK3588"
 
 #define ARGUMENT_TYPE_BOOL		1
-#define ARGUMENT_TYPE_XU32		2
+#define ARGUMENT_TYPE_CONST32		2
 #define ARGUMENT_TYPE_STRING		3
+#define ARGUMENT_TYPE_DEC_U32		4
 
 typedef struct {
 	const char *pArgument;
@@ -41,6 +42,9 @@ typedef struct {
 	uint32_t Value;
 	void *pResult;
 } Argument_t;
+
+static mbedtls_entropy_context Entropy;
+static mbedtls_ctr_drbg_context Drbg;
 
 static const char *pKeyFile;
 static const char *p471File;
@@ -52,19 +56,17 @@ static const Argument_t RK_Arguments[] = {
 	{ "--471",	ARGUMENT_TYPE_STRING,	0,			&p471File },
 	{ "--472",	ARGUMENT_TYPE_STRING,	0,			&p472File },
 	{ "-o",		ARGUMENT_TYPE_STRING,	0,			&pOutputFile },
-	{ "--rkldr",	ARGUMENT_TYPE_XU32,	RK3588_IMAGE_LDR,	&ImageType },
-	{ "--rkss",	ARGUMENT_TYPE_XU32,	RK3588_IMAGE_RKSS,	&ImageType },
+	{ "--rkldr",	ARGUMENT_TYPE_CONST32,	RK3588_IMAGE_LDR,	&ImageType },
+	{ "--rkss",	ARGUMENT_TYPE_CONST32,	RK3588_IMAGE_RKSS,	&ImageType },
 	{ "--key",	ARGUMENT_TYPE_STRING,	0,			&pKeyFile },
 	{ NULL },
 };
 
 static int MyRandom(void *pPrivate, uint8_t *pOutput, size_t Length)
 {
-	if (pOutput) {
-		memset(pOutput, 0x55, Length);
-	}
+	mbedtls_ctr_drbg_context *pDrbg = (mbedtls_ctr_drbg_context *)pPrivate;
 
-	return 0;
+	return mbedtls_ctr_drbg_random(pDrbg, pOutput, Length);
 }
 
 static void Usage(const char *pExecutable)
@@ -90,7 +92,8 @@ static int ParseArguments(int argc, char *argv[], const Argument_t *pArguments)
 			*pBool = false;
 			break;
 
-		case ARGUMENT_TYPE_XU32:
+		case ARGUMENT_TYPE_CONST32:
+		case ARGUMENT_TYPE_DEC_U32:
 			pU32 = (uint32_t *)pArguments[i].pResult;
 			*pU32 = 0U;
 			break;
@@ -118,7 +121,7 @@ static int ParseArguments(int argc, char *argv[], const Argument_t *pArguments)
 			*pBool = true;
 			break;
 
-		case ARGUMENT_TYPE_XU32:
+		case ARGUMENT_TYPE_CONST32:
 			pU32 = (uint32_t *)pArguments[j].pResult;
 			if (*pU32 && *pU32 != pArguments[j].Value) {
 				printf("Conflicting argument %s!\n", argv[i]);
@@ -134,6 +137,16 @@ static int ParseArguments(int argc, char *argv[], const Argument_t *pArguments)
 			}
 			ppString = (const char **)pArguments[j].pResult;
 			*ppString = argv[i + 1];
+			i++;
+			break;
+
+		case ARGUMENT_TYPE_DEC_U32:
+			if (i + 1 == argc) {
+				printf("Missing parameter for argument %s\n", argv[i]);
+				return -1;
+			}
+			pU32 = (uint32_t *)pArguments[j].pResult;
+			*pU32 = strtoul(argv[i + 1], NULL, 10);
 			i++;
 			break;
 		}
@@ -159,7 +172,7 @@ static void *LoadFile(const char *pFilename, size_t *pAlignedSize, size_t MaxSiz
 	fseek(fp, 0, SEEK_SET);
 
 	if (!Size || Size > MaxSize) {
-		printf("File %s is empty!", pFilename);
+		printf("File %s is empty!\n", pFilename);
 		fclose(fp);
 		return NULL;
 	}
@@ -243,34 +256,43 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	mbedtls_entropy_init(&Entropy);
+	mbedtls_ctr_drbg_init(&Drbg);
+	ret = mbedtls_ctr_drbg_seed(&Drbg, mbedtls_entropy_func, &Entropy, (const uint8_t *)PERSONALISATION, sizeof(PERSONALISATION));
+	if (ret) {
+		printf("Failed to add entropy with error -0x%X\n", -ret);
+		goto Error;
+	}
+
 	memset(&Header, 0, sizeof(Header));
 	Header.Signed.Magic = RK3588_MAGIC_IMAGE;
 	Header.Signed.Flags = RK3588_FLAGS_HASH_SHA256;
+
 	if (pKeyFile) {
 		Header.Signed.Flags |= RK3588_FLAGS_SIGNED;
 	}
+
 	Header.Signed.Table[0].Lba = sizeof(Header) / RK3588_LBA_SIZE;
 	Header.Signed.Table[0].Count = (uint16_t)(AlignedSize471 / RK3588_LBA_SIZE);
 
 	mbedtls_sha256_init(&Sha);
-	mbedtls_sha256_starts(&Sha, 0);
-	mbedtls_sha256_update(&Sha, (uint8_t *)p471Image, AlignedSize471);
-	mbedtls_sha256_finish(&Sha, Header.Signed.Table[0].Hash);
+	mbedtls_sha256_starts_ret(&Sha, 0);
+	mbedtls_sha256_update_ret(&Sha, (uint8_t *)p471Image, AlignedSize471);
+	mbedtls_sha256_finish_ret(&Sha, Header.Signed.Table[0].Hash);
 
 	if (p472File) {
 		p472Image = LoadFile(p472File, &AlignedSize472, 32768U * 1024U);
 		if (!p472Image) {
-			free(p471Image);
-			return 1;
+			goto Error;
 		}
 
 		Header.Signed.Table[1].Lba = Header.Signed.Table[0].Lba + Header.Signed.Table[0].Count;
 		Header.Signed.Table[1].Count = (uint16_t)(AlignedSize472 / RK3588_LBA_SIZE);
 
 		mbedtls_sha256_init(&Sha);
-		mbedtls_sha256_starts(&Sha, 0);
-		mbedtls_sha256_update(&Sha, (uint8_t *)p472Image, AlignedSize472);
-		mbedtls_sha256_finish(&Sha, Header.Signed.Table[1].Hash);
+		mbedtls_sha256_starts_ret(&Sha, 0);
+		mbedtls_sha256_update_ret(&Sha, (uint8_t *)p472Image, AlignedSize472);
+		mbedtls_sha256_finish_ret(&Sha, Header.Signed.Table[1].Hash);
 	}
 
 	if (Header.Signed.Flags & RK3588_FLAGS_SIGNED) {
@@ -279,14 +301,14 @@ int main(int argc, char *argv[])
 		size_t KeyLength;
 
 		mbedtls_pk_init(&Pk);
-		ret = mbedtls_pk_parse_keyfile(&Pk, pKeyFile, NULL, NULL, NULL);
+		ret = mbedtls_pk_parse_keyfile(&Pk, pKeyFile, NULL);
 		if (ret) {
 			printf("Failed to load key file!\n");
 			goto Error;
 		}
 
 		if (!mbedtls_pk_can_do(&Pk, MBEDTLS_PK_RSASSA_PSS)) {
-			printf("Key is not RSA!");
+			printf("Key is not RSA!\n");
 			goto Error;
 		}
 
@@ -303,32 +325,32 @@ int main(int argc, char *argv[])
 		pRsa = mbedtls_pk_rsa(Pk);
 
 		mbedtls_rsa_set_padding(pRsa, MBEDTLS_RSA_PKCS_V21, MBEDTLS_MD_SHA256);
-		mbedtls_mpi_write_binary_le(&pRsa->private_N, Header.Signed.Key.Modulus, sizeof(Header.Signed.Key.Modulus));
+		mbedtls_mpi_write_binary_le(&pRsa->N, Header.Signed.Key.Modulus, sizeof(Header.Signed.Key.Modulus));
 		mbedtls_mpi_init(&Np);
-		mbedtls_mpi_lset(&Np, 2);
+		mbedtls_mpi_lset(&Np, 1);
 		if (KeyLength == 2048) {
-			mbedtls_mpi_shift_l(&Np, 2180 - 1);
+			mbedtls_mpi_shift_l(&Np, 2180);
 		} else {
-			mbedtls_mpi_shift_l(&Np, 4228 - 1);
+			mbedtls_mpi_shift_l(&Np, 4228);
 		}
-		mbedtls_mpi_div_mpi(&Np, NULL, &Np, &pRsa->private_N);
+		mbedtls_mpi_div_mpi(&Np, NULL, &Np, &pRsa->N);
 		mbedtls_mpi_write_binary_le(&Np, Header.Signed.Key.NP, sizeof(Header.Signed.Key.NP));
-		mbedtls_mpi_write_binary_le(&pRsa->private_E, Header.Signed.Key.Exponent, sizeof(Header.Signed.Key.Exponent));
+		mbedtls_mpi_write_binary_le(&pRsa->E, Header.Signed.Key.Exponent, sizeof(Header.Signed.Key.Exponent));
 	}
 
 	mbedtls_sha256_init(&Sha);
-	mbedtls_sha256_starts(&Sha, 0);
-	mbedtls_sha256_update(&Sha, (uint8_t *)&Header.Signed, sizeof(Header.Signed));
-	mbedtls_sha256_finish(&Sha, Header.Signature);
+	mbedtls_sha256_starts_ret(&Sha, 0);
+	mbedtls_sha256_update_ret(&Sha, (uint8_t *)&Header.Signed, sizeof(Header.Signed));
+	mbedtls_sha256_finish_ret(&Sha, Header.Signature);
 
 	if (Header.Signed.Flags & RK3588_FLAGS_SIGNED) {
 		uint8_t Signature[sizeof(Header.Signature)];
 		size_t Length = 0;
 		size_t i, KeyLength;
 
-		ret = mbedtls_pk_sign(&Pk, MBEDTLS_MD_SHA256, Header.Signature, 0, Signature, sizeof(Signature), &Length, MyRandom, NULL);
+		ret = mbedtls_pk_sign(&Pk, MBEDTLS_MD_SHA256, Header.Signature, 0, Signature, &Length, MyRandom, &Drbg);
 		if (ret) {
-			printf("Failed to sign with error: -0x%04X", -ret);
+			printf("Failed to sign with error: -0x%04X\n", -ret);
 		}
 
 		KeyLength = mbedtls_pk_get_bitlen(&Pk) / 8;
@@ -366,7 +388,7 @@ int main(int argc, char *argv[])
 	fp = fopen(pOutputFile, "wb");
 	if (!fp) {
 		perror(pOutputFile);
-		return 1;
+		goto Error;
 	}
 
 	if (ImageType == RK3588_IMAGE_LDR) {
@@ -395,6 +417,9 @@ Error:
 		free(p472Image);
 	}
 	free(p471Image);
+
+	mbedtls_ctr_drbg_free(&Drbg);
+	mbedtls_entropy_free(&Entropy);
 
 	return 1;
 }

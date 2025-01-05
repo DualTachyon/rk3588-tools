@@ -193,7 +193,6 @@ int main(int argc, char *argv[])
 	void *pImage;
 	size_t Size, i;
 	uint32_t Mask, Check;
-	FILE *fp;
 	int ret;
 
 	printf("RK3588 Secure Boot OTP generator. Copyright 2024 Dual Tachyon\n\n");
@@ -242,11 +241,11 @@ int main(int argc, char *argv[])
 	}
 
 	mbedtls_sha256_init(&Sha);
-	mbedtls_sha256_starts(&Sha, 0);
-	mbedtls_sha256_update(&Sha, (uint8_t *)&pHeader->Signed, sizeof(pHeader->Signed));
-	mbedtls_sha256_finish(&Sha, Hash);
+	mbedtls_sha256_starts_ret(&Sha, 0);
+	mbedtls_sha256_update_ret(&Sha, (uint8_t *)&pHeader->Signed, sizeof(pHeader->Signed));
+	mbedtls_sha256_finish_ret(&Sha, Hash);
 
-	mbedtls_rsa_init(&Rsa);
+	mbedtls_rsa_init(&Rsa, MBEDTLS_RSA_PKCS_V21, MBEDTLS_MD_SHA256);
 	mbedtls_mpi_init(&Modulus);
 	mbedtls_mpi_init(&Exponent);
 
@@ -270,16 +269,16 @@ int main(int argc, char *argv[])
 		Signature[i] = pHeader->Signature[Size - 1 - i];
 	}
 
-	ret = mbedtls_rsa_rsassa_pss_verify(&Rsa, MBEDTLS_MD_SHA256, 32, Hash, Signature);
+	ret = mbedtls_rsa_rsassa_pss_verify(&Rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_SHA256, 32, Hash, Signature);
 	if (ret) {
 		printf("Failed to verify the embedded signature! Error: -%X\n", ret);
 		goto Error;
 	}
 
 	mbedtls_sha256_init(&Sha);
-	mbedtls_sha256_starts(&Sha, 0);
-	mbedtls_sha256_update(&Sha, (uint8_t *)&pHeader->Signed.Key, sizeof(pHeader->Signed.Key));
-	mbedtls_sha256_finish(&Sha, Hash);
+	mbedtls_sha256_starts_ret(&Sha, 0);
+	mbedtls_sha256_update_ret(&Sha, (uint8_t *)&pHeader->Signed.Key, sizeof(pHeader->Signed.Key));
+	mbedtls_sha256_finish_ret(&Sha, Hash);
 
 	printf("Paste the following line inside BootKeyHash[]:\n\t");
 	Check = 0U;
