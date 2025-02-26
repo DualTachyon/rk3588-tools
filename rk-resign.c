@@ -280,11 +280,11 @@ int main(int argc, char *argv[])
 	mbedtls_rsa_set_padding(pRsa, MBEDTLS_RSA_PKCS_V21, MBEDTLS_MD_SHA256);
 	mbedtls_mpi_write_binary_le(&pRsa->N, pHeader->Signed.Key.Modulus, sizeof(pHeader->Signed.Key.Modulus));
 	mbedtls_mpi_init(&Np);
-	mbedtls_mpi_lset(&Np, 2);
+	mbedtls_mpi_lset(&Np, 1);
 	if (KeyLength == 2048) {
-		mbedtls_mpi_shift_l(&Np, 2180 - 1);
+		mbedtls_mpi_shift_l(&Np, 2180);
 	} else {
-		mbedtls_mpi_shift_l(&Np, 4228 - 1);
+		mbedtls_mpi_shift_l(&Np, 4228);
 	}
 	mbedtls_mpi_div_mpi(&Np, NULL, &Np, &pRsa->N);
 	mbedtls_mpi_write_binary_le(&Np, pHeader->Signed.Key.NP, sizeof(pHeader->Signed.Key.NP));
