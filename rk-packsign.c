@@ -265,11 +265,13 @@ int main(int argc, char *argv[])
 	}
 
 	memset(&Header, 0, sizeof(Header));
-	Header.Signed.Magic = RK3588_MAGIC_IMAGE;
 	Header.Signed.Flags = RK3588_FLAGS_HASH_SHA256;
 
 	if (pKeyFile) {
+		Header.Signed.Magic = RK3588_MAGIC_IMAGE_S;
 		Header.Signed.Flags |= RK3588_FLAGS_SIGNED;
+	} else {
+		Header.Signed.Magic = RK3588_MAGIC_IMAGE_NS;
 	}
 
 	Header.Signed.Table[0].Lba = sizeof(Header) / RK3588_LBA_SIZE;

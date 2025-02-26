@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 		pHeader = (const RK_SignedHeader_t *)pImage;
 	}
 
-	if (pHeader->Signed.Magic != RK3588_MAGIC_IMAGE) {
+	if (pHeader->Signed.Magic != RK3588_MAGIC_IMAGE_S) {
 		printf("Unexpected image!\n");
 		goto Error;
 	}

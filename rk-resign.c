@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (pHeader->Signed.Magic != RK3588_MAGIC_IMAGE) {
+	if (pHeader->Signed.Magic != RK3588_MAGIC_IMAGE_NS && pHeader->Signed.Magic != RK3588_MAGIC_IMAGE_S) {
 		printf("Invalid image format!\n");
 		free(pHeader);
 		return 1;
@@ -252,7 +252,6 @@ int main(int argc, char *argv[])
 	}
 
 	pHeader->Signed.Flags = RK3588_FLAGS_HASH_SHA256 | RK3588_FLAGS_SIGNED;
-
 
 	mbedtls_pk_init(&Pk);
 	ret = mbedtls_pk_parse_keyfile(&Pk, pKeyFile, NULL);
