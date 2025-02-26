@@ -46,7 +46,7 @@ $ rkdeveloptool db loader.flash.bin
 
 ```
 # This loader.bin is always based at 0xFF001000.
-$ ./rk-packsign --usb --471 loader.bin -o loader.usb.bin
+$ ./rk-packsign --rkldr --471 loader.bin -o loader.usb.bin
 $ rkdeveloptool db loader.usb.bin
 ```
 
