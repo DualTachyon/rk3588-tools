@@ -53,7 +53,7 @@ $ rkdeveloptool db loader.usb.bin
 - To add signing to any of the above steps, add --key to the command line. For example:
 
 ```
-$ ./rk-packsign --key private_key.pem --usb --471 loader.bin -o loader.usb.bin
+$ ./rk-packsign --key private_key.pem --rkldr --471 loader.bin -o loader.usb.bin
 ```
 
 # Generating the OTP data for Secure Boot enablement
